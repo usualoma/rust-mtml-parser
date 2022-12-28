@@ -1,0 +1,11 @@
+[package]
+name = "mtml-parser"
+description = "MTML parser written in Rust."
+version = "0.0.1"
+edition = "2021"
+authors = ["Taku Amano <taku@taaas.jp>"]
+license = "MIT"
+
+[dependencies]
+nom = "7"
+nom_locate = "4"
