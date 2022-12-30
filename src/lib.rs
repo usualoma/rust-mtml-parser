@@ -3,13 +3,15 @@
 extern crate nom;
 mod ast;
 
-use ast::{Node, NodeKind};
+use ast::{Node::*, *};
 use nom::{
     branch::alt,
-    bytes::complete::{escaped, is_not, tag_no_case, take_until},
-    character::complete::{alphanumeric0, anychar, char, multispace0, one_of},
-    combinator::opt,
-    IResult,
+    bytes::complete::{escaped, is_not, tag, tag_no_case, take_until},
+    character::complete::{alpha1, alphanumeric1, anychar, char, multispace0, one_of},
+    combinator::{opt, recognize},
+    multi::many0_count,
+    sequence::pair,
+    IResult, InputTake,
 };
 use nom_locate::{position, LocatedSpan};
 
@@ -21,117 +23,148 @@ type Span<'a> = LocatedSpan<&'a str>;
 ///
 /// ```
 /// use mtml_parser::parse;
-/// 
+///
 /// parse("<body><mt:Entries><mt:EntryTitle /></mt:Entries></body>");
 /// ```
-pub fn parse(s: &str) -> Node {
-    let (_, children) = parse_internal(Span::new(s), None).unwrap();
-    return Node {
-        kind: NodeKind::Root,
-        name: "",
-        value: None,
-        children: children,
-        attributes: vec![],
-        line: 0,
-        offset: 0,
+pub fn parse(input: &str) -> Result<Node, String> {
+    match parse_internal(Span::new(input), None) {
+        Ok((_, children)) => {
+            return Ok(Root(RootNode { children }));
+        }
+        Err(e) => {
+            return Err(format!("Parse error: {}", e));
+        }
     };
 }
 
+fn take_until_tag(input: Span) -> IResult<Span, Span> {
+    let str = input.to_string();
+    let mut pos = 0usize;
+    loop {
+        match str[pos..].find('<') {
+            Some(index) => {
+                pos += index;
+                let offset = match str.chars().nth(pos + 1) {
+                    Some('$') | Some('/') => 1,
+                    _ => 0,
+                };
+                let next = &str[pos + offset + 1..pos + offset + 3];
+                if next.eq_ignore_ascii_case("mt") {
+                    break;
+                }
+                pos += 1;
+            }
+            None => {
+                pos = str.len();
+                break;
+            }
+        }
+    }
+
+    return Ok(input.take_split(pos));
+}
+
 fn parse_internal<'a>(
-    s: Span<'a>,
+    mut input: Span<'a>,
     current_tag: Option<&'a str>,
 ) -> IResult<Span<'a>, Vec<Node<'a>>> {
-    let mut _s = s;
     let mut children = vec![];
 
-    while _s.len() > 0 {
-        let (_, pos) = position(_s)?;
-        let (s, text) = match opt(alt((
-            take_until("<mt"),
-            take_until("</mt"),
-            take_until("<$mt"),
-        )))(_s)?
-        {
-            (s, Some(text)) => (s, text),
-            _ => (Span::new(""), _s),
+    while input.len() > 0 {
+        let (_, pos) = position(input)?;
+        let (rest, text) = match opt(take_until_tag)(input)? {
+            (rest, Some(text)) => (rest, text),
+            _ => (Span::new(""), input),
         };
 
         if text.len() > 0 {
-            children.push(Node {
-                kind: NodeKind::Text,
-                name: "",
-                value: Some(text.fragment()),
-                children: vec![],
-                attributes: vec![],
+            children.push(Text(TextNode {
+                value: text.fragment(),
                 line: pos.location_line(),
                 offset: pos.location_offset(),
-            });
+            }))
         }
 
-        if s.len() == 0 {
+        if rest.len() == 0 {
             break;
         }
 
-        let (_, end_tag) = opt(tag_no_case("</"))(s)?;
+        let (_, end_tag) = opt(tag_no_case("</"))(rest)?;
         if end_tag.is_some() && current_tag.is_some() {
-            let (s, _) = tag_no_case(format!("</mt:{}>", current_tag.unwrap()).as_str())(s)?;
-            _s = s;
+            let current_tag_str = current_tag.unwrap();
+            let (rest, _) = alt((
+                tag_no_case(format!("</mt:{}>", current_tag_str).as_str()),
+                tag_no_case(format!("</mt{}>", current_tag_str).as_str()),
+            ))(rest)?;
+            input = rest;
             break;
         } else {
-            let (s, node) = parse_tag(s)?;
+            let (rest, node) = parse_tag(rest)?;
             children.push(node);
-            _s = s;
+            input = rest;
         };
     }
 
-    return Ok((_s, children));
+    return Ok((input, children));
 }
 
-fn parse_attribute_values(s: Span) -> IResult<Span, Vec<ast::AttributeValue>> {
-    let (mut _s, _) = opt(char(','))(s)?;
+fn parse_attribute_values(mut input: Span) -> IResult<Span, Vec<ast::AttributeValue>> {
     let mut values: Vec<ast::AttributeValue> = vec![];
 
-    while _s.len() > 0 {
-        match _s.chars().nth(0) {
-            Some('"') | Some('\'') => {}
-            _ => break,
-        }
-        let (s, ch) = alt((char('"'), char('\'')))(_s)?;
-        let (s, value) = escaped(
+    while input.len() > 0 {
+        let (_, pos) = position(input)?;
+        let (rest, ch) = opt(alt((char('"'), char('\''))))(input)?;
+        let ch = match ch {
+            Some(ch) => ch,
+            None => break,
+        };
+        let (rest, value) = escaped(
             is_not(format!("{}\\", ch).as_str()),
             '\\',
             one_of(format!("{}", ch).as_str()),
-        )(s)?;
-        let (s, _) = char(ch)(s)?;
-        let (_, pos) = position(s)?;
+        )(rest)?;
+        let (rest, _) = char(ch)(rest)?;
         values.push(ast::AttributeValue {
             value: value.fragment(),
             line: pos.location_line(),
             offset: pos.location_offset(),
         });
-        _s = s;
+
+        input = rest;
+
+        let (rest, separator) = opt(char(','))(rest)?;
+        if separator.is_none() {
+            break;
+        }
+
+        input = rest;
     }
 
-    return if values.len() > 0 {
-        Ok((_s, values))
-    } else {
-        Ok((s, values))
-    };
+    Ok((input, values))
 }
 
-fn parse_attribute(s0: Span) -> IResult<Span, Option<ast::Attribute>> {
-    let (s, _) = multispace0(s0)?;
-    let (_, name) = alphanumeric0(s)?;
-    if name.len() == 0 {
-        return Ok((s, None));
-    }
-    let (_, pos) = position(s)?;
-    let (s, name) = take_until("=")(s)?;
-    let (s, _) = char('=')(s)?;
-    let (s, values) = parse_attribute_values(s)?;
+fn name_parser(input: Span) -> IResult<Span, Span> {
+    recognize(pair(
+        alt((alpha1, tag("_"))),
+        many0_count(alt((alphanumeric1, tag("_"), tag(":")))),
+    ))(input)
+}
+
+fn parse_attribute(input: Span) -> IResult<Span, Option<ast::Attribute>> {
+    let (rest, _) = multispace0(input)?;
+    let (_, pos) = position(rest)?;
+
+    let (rest, name) = opt(name_parser)(rest)?;
+    let name = match name {
+        Some(name) => name,
+        None => return Ok((input, None)),
+    };
+
+    let (rest, _) = char('=')(rest)?;
+    let (rest, values) = parse_attribute_values(rest)?;
 
     return Ok((
-        s,
+        rest,
         Some(ast::Attribute {
             name: name.fragment(),
             values,
@@ -141,69 +174,57 @@ fn parse_attribute(s0: Span) -> IResult<Span, Option<ast::Attribute>> {
     ));
 }
 
-fn parse_attributes(s: Span) -> IResult<Span, Vec<ast::Attribute>> {
-    let mut s0 = s;
+fn parse_attributes(mut input: Span) -> IResult<Span, Vec<ast::Attribute>> {
     let mut attributes = vec![];
 
     loop {
-        let (s, attribute) = parse_attribute(s0)?;
+        let (rest, attribute) = parse_attribute(input)?;
         match attribute {
             Some(attribute) => {
-                s0 = s;
+                input = rest;
                 attributes.push(attribute)
             }
             None => break,
         }
     }
 
-    return Ok((s0, attributes));
+    return Ok((input, attributes));
 }
 
-fn parse_tag(s: Span) -> IResult<Span, Node> {
-    let (s, head) = alt((tag_no_case("<mt"), tag_no_case("<$mt")))(s)?;
-    let (s, _) = opt(char(':'))(s)?;
-    let (s, name) = alphanumeric0(s)?;
-    let (s, attributes) = parse_attributes(s)?;
-    let (s, pos) = position(s)?;
-    let (s, tail) = take_until(">")(s)?;
-    let (s, _) = anychar(s)?;
+fn parse_tag(input: Span) -> IResult<Span, Node> {
+    let (rest, head) = alt((tag_no_case("<mt"), tag_no_case("<$mt")))(input)?;
+    let (rest, _) = opt(char(':'))(rest)?;
+    let (rest, name) = name_parser(rest)?;
+    let (rest, attributes) = parse_attributes(rest)?;
+    let (rest, pos) = position(rest)?;
+    let (rest, tail) = take_until(">")(rest)?;
+    let (rest, _) = anychar(rest)?;
 
-    let kind = if tail.len() >= 1
+    if tail.len() >= 1
         && (head.chars().nth(1).unwrap() == '$' || tail.chars().rev().nth(0).unwrap() == '/')
     {
-        NodeKind::FunctionTag
-    } else {
-        NodeKind::BlockTag
-    };
-
-    if matches!(kind, NodeKind::BlockTag) {
-        let (s, children) = parse_internal(s, Some(name.fragment()))?;
         return Ok((
-            s,
-            Node {
-                kind,
+            rest,
+            FunctionTag(FunctionTagNode {
                 name: name.fragment(),
-                value: None,
+                attributes,
+                line: pos.location_line(),
+                offset: pos.location_offset(),
+            }),
+        ));
+    } else {
+        let (rest, children) = parse_internal(rest, Some(name.fragment()))?;
+        return Ok((
+            rest,
+            BlockTag(BlockTagNode {
+                name: name.fragment(),
                 children,
                 attributes,
                 line: pos.location_line(),
                 offset: pos.location_offset(),
-            },
+            }),
         ));
     }
-
-    return Ok((
-        s,
-        Node {
-            kind,
-            name: name.fragment(),
-            value: None,
-            children: vec![],
-            attributes,
-            line: pos.location_line(),
-            offset: pos.location_offset(),
-        },
-    ));
 }
 
 /// Serialize AST to MTML document.
@@ -212,38 +233,49 @@ fn parse_tag(s: Span) -> IResult<Span, Node> {
 ///
 /// ```
 /// use mtml_parser::{parse, serialize};
-/// 
-/// serialize(parse("<body><mt:Entries><mt:EntryTitle /></mt:Entries></body>"));
+///
+/// let node = match parse("<body><mt:Entries><mt:EntryTitle /></mt:Entries></body>") {
+///   Ok(node) => node,
+///   Err(err) => panic!("{}", err),
+/// };
+/// serialize(node);
 /// ```
 pub fn serialize(node: Node) -> String {
     let mut s = String::new();
 
-    match node.kind {
-        NodeKind::Text => {
-            s.push_str(node.value.unwrap());
+    match node {
+        Root(RootNode { children }) => {
+            for child in children {
+                s.push_str(&serialize(child));
+            }
         }
-        NodeKind::FunctionTag => {
-            s.push_str(&format!("<$mt:{}", node.name));
-            for attr in node.attributes {
+        Text(TextNode { value, .. }) => {
+            s.push_str(value);
+        }
+        FunctionTag(FunctionTagNode {
+            name, attributes, ..
+        }) => {
+            s.push_str(&format!("<$mt:{}", name));
+            for attr in attributes {
                 s.push_str(&format!(r#" {}="{}""#, attr.name, attr.values[0].value));
             }
             s.push_str("$>");
         }
-        NodeKind::BlockTag => {
-            s.push_str(&format!("<mt:{}", node.name));
-            for attr in node.attributes {
+        BlockTag(BlockTagNode {
+            name,
+            children,
+            attributes,
+            ..
+        }) => {
+            s.push_str(&format!("<mt:{}", name));
+            for attr in attributes {
                 s.push_str(&format!(r#" {}="{}""#, attr.name, attr.values[0].value));
             }
             s.push_str(">");
-            for child in node.children {
+            for child in children {
                 s.push_str(&serialize(child));
             }
-            s.push_str(&format!("</mt:{}>", node.name));
-        }
-        NodeKind::Root => {
-            for child in node.children {
-                s.push_str(&serialize(child));
-            }
+            s.push_str(&format!("</mt:{}>", name));
         }
     }
 
@@ -255,7 +287,62 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_serialize() {
+    fn test_parse_attribute() {
+        let (rest, attribute) = parse_attribute(Span::new(r#"limit="10""#)).unwrap();
+        assert_eq!(*rest.fragment(), "");
+        let attribute = attribute.unwrap();
+        assert_eq!(attribute.name, "limit");
+        assert_eq!(
+            attribute.values,
+            vec![ast::AttributeValue {
+                value: "10",
+                line: 1,
+                offset: 6
+            }]
+        );
+    }
+
+    #[test]
+    fn test_parse_attribute_single_quote() {
+        let (rest, attribute) = parse_attribute(Span::new(r#"limit='10'"#)).unwrap();
+        assert_eq!(*rest.fragment(), "");
+        let attribute = attribute.unwrap();
+        assert_eq!(attribute.name, "limit");
+        assert_eq!(
+            attribute.values,
+            vec![ast::AttributeValue {
+                value: "10",
+                line: 1,
+                offset: 6
+            }]
+        );
+    }
+
+    #[test]
+    fn test_parse_attribute_replace() {
+        let (rest, attribute) = parse_attribute(Span::new(r#"replace="a","b""#)).unwrap();
+        assert_eq!(*rest.fragment(), "");
+        let attribute = attribute.unwrap();
+        assert_eq!(attribute.name, "replace");
+        assert_eq!(
+            attribute.values,
+            vec![
+                ast::AttributeValue {
+                    value: "a",
+                    line: 1,
+                    offset: 8
+                },
+                ast::AttributeValue {
+                    value: "b",
+                    line: 1,
+                    offset: 12
+                }
+            ]
+        );
+    }
+
+    #[test]
+    fn test_parse_then_serialize() {
         let input = r#"
 <html>
   <body>
@@ -264,17 +351,20 @@ mod tests {
     </mt:Entries>
   </body>
 </html>"#;
-        let root = parse(input);
+        let root = parse(input).unwrap();
 
         let serialized = serialize(root);
 
-        assert_eq!(serialized, r#"
+        assert_eq!(
+            serialized,
+            r#"
 <html>
   <body>
     <mt:Entries limit="10\"20">
       <$mt:EntryTitle encode_html="1"$>
     </mt:Entries>
   </body>
-</html>"#)
+</html>"#
+        )
     }
 }
