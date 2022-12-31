@@ -2,7 +2,7 @@
 
 mod ast;
 mod parser;
-mod serializer;
+pub mod serializer;
 mod json;
 mod tag;
 

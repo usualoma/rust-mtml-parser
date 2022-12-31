@@ -1,12 +1,21 @@
+extern crate clap;
+use clap::{Parser, ValueEnum};
+
 use super::ast::{Node::*, *};
 
-pub const FUNCTION_TAG_STYLE_DOLLAR: u8 = 0;
-pub const FUNCTION_TAG_STYLE_SELF_CLOSING: u8 = 1;
+#[derive(Debug, Clone, PartialEq, Eq, ValueEnum)]
+pub enum FunctionTagStyle {
+    Dollar = 1,
+    SelfClosing,
+}
 
-#[derive(Debug, Clone, Copy)]
-pub struct Options<'a> {
-    prefix: &'a str,
-    function_tag_style: u8,
+#[derive(Debug, Parser)]
+#[command(author, version, about, long_about = None)]
+pub struct Options {
+    #[arg(short, long, default_value = "mt:")]
+    prefix: String,
+    #[arg(short, long, value_enum, default_value = "dollar")]
+    function_tag_style: FunctionTagStyle,
 }
 
 /// Serialize AST to MTML document.
@@ -22,12 +31,13 @@ pub struct Options<'a> {
 /// };
 /// serialize(node, None);
 /// ```
-pub fn serialize(node: Node, options: Option<Options>) -> String {
+pub fn serialize(node: Node, options: Option<&Options>) -> String {
     let mut s = String::new();
-    let options = options.unwrap_or(Options {
-        prefix: "mt:",
-        function_tag_style: FUNCTION_TAG_STYLE_DOLLAR,
-    });
+    let default_opts = Options {
+        prefix: "mt:".to_string(),
+        function_tag_style: FunctionTagStyle::Dollar,
+    };
+    let options = options.unwrap_or(&default_opts);
 
     match node {
         Root(RootNode { children }) => {
@@ -41,12 +51,12 @@ pub fn serialize(node: Node, options: Option<Options>) -> String {
         FunctionTag(FunctionTagNode {
             name, attributes, ..
         }) => {
-            let pre_sign = if options.function_tag_style == FUNCTION_TAG_STYLE_DOLLAR {
+            let pre_sign = if options.function_tag_style == FunctionTagStyle::Dollar {
                 "$"
             } else {
                 ""
             };
-            let post_sign = if options.function_tag_style == FUNCTION_TAG_STYLE_DOLLAR {
+            let post_sign = if options.function_tag_style == FunctionTagStyle::Dollar {
                 "$"
             } else {
                 "/"
@@ -112,9 +122,9 @@ mod tests {
     #[test]
     fn test_serialize_self_closing() {
         let root = parse(INPUT).unwrap();
-        let serialized = serialize(root, Some(Options {
-            prefix: "mt:",
-            function_tag_style: FUNCTION_TAG_STYLE_SELF_CLOSING,
+        let serialized = serialize(root, Some(&Options {
+            prefix: "mt:".to_string(),
+            function_tag_style: FunctionTagStyle::SelfClosing,
         }));
         assert_eq!(
             serialized,
@@ -132,9 +142,9 @@ mod tests {
     #[test]
     fn test_serialize_prefix() {
         let root = parse(INPUT).unwrap();
-        let serialized = serialize(root, Some(Options {
-            prefix: "MT",
-            function_tag_style: FUNCTION_TAG_STYLE_DOLLAR,
+        let serialized = serialize(root, Some(&Options {
+            prefix: "MT".to_string(),
+            function_tag_style: FunctionTagStyle::Dollar,
         }));
         assert_eq!(
             serialized,
