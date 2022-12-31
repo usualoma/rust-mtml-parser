@@ -11,7 +11,8 @@ use nom::{
 };
 use nom_locate::{position, LocatedSpan};
 
-use super::ast::{*, Node::*};
+use super::ast::{Node::*, *};
+use super::tag::FUNCTION_TAGS;
 
 type Span<'a> = LocatedSpan<&'a str>;
 
@@ -190,32 +191,35 @@ fn parse_attributes(mut input: Span) -> IResult<Span, Vec<Attribute>> {
 }
 
 fn parse_tag(input: Span) -> IResult<Span, Node> {
+    let (_, pos) = position(input)?;
     let (rest, head) = alt((tag_no_case("<mt"), tag_no_case("<$mt")))(input)?;
     let (rest, _) = opt(char(':'))(rest)?;
     let (rest, name) = name_parser(rest)?;
     let (rest, attributes) = parse_attributes(rest)?;
-    let (rest, pos) = position(rest)?;
     let (rest, tail) = take_until(">")(rest)?;
     let (rest, _) = anychar(rest)?;
 
-    if tail.len() >= 1
-        && (head.chars().nth(1).unwrap() == '$' || tail.chars().rev().nth(0).unwrap() == '/')
+    let name = name.fragment();
+
+    if FUNCTION_TAGS.lock().unwrap().contains(&name.to_lowercase())
+        || (tail.len() >= 1
+            && (head.chars().nth(1).unwrap() == '$' || tail.chars().rev().nth(0).unwrap() == '/'))
     {
         return Ok((
             rest,
             FunctionTag(FunctionTagNode {
-                name: name.fragment(),
+                name,
                 attributes,
                 line: pos.location_line(),
                 offset: pos.location_offset(),
             }),
         ));
     } else {
-        let (rest, children) = parse_internal(rest, Some(name.fragment()))?;
+        let (rest, children) = parse_internal(rest, Some(name))?;
         return Ok((
             rest,
             BlockTag(BlockTagNode {
-                name: name.fragment(),
+                name,
                 children,
                 attributes,
                 line: pos.location_line(),
@@ -228,6 +232,18 @@ fn parse_tag(input: Span) -> IResult<Span, Node> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_parse_tag_function_tag() {
+        let (rest, tag) = parse_tag(Span::new(r#"<mt:EntryTitle>"#)).unwrap();
+        assert_eq!(*rest.fragment(), "");
+        assert_eq!(tag, FunctionTag(FunctionTagNode {
+            name: "EntryTitle",
+            attributes: vec![],
+            line: 1,
+            offset: 0
+        }));
+    }
 
     #[test]
     fn test_parse_attribute() {

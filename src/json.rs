@@ -43,7 +43,7 @@ mod tests {
         let json = to_json(root);
         assert_eq!(
             json,
-            r#"{"children":[{"type":"Text","value":"\n<html>\n  <body>\n    ","line":1,"offset":0},{"type":"BlockTag","name":"Entries","attributes":[{"name":"limit","values":[{"value":"10\\\"20","line":4,"offset":42}],"line":4,"offset":36}],"children":[{"type":"Text","value":"\n      ","line":4,"offset":51},{"type":"FunctionTag","name":"EntryTitle","attributes":[{"name":"encode_html","values":[{"value":"1","line":5,"offset":84}],"line":5,"offset":72}],"line":5,"offset":87},{"type":"Text","value":"\n    ","line":5,"offset":89}],"line":4,"offset":50},{"type":"Text","value":"\n  </body>\n</html>","line":6,"offset":107}]}"#
+            r#"{"children":[{"type":"Text","value":"\n<html>\n  <body>\n    ","line":1,"offset":0},{"type":"BlockTag","name":"Entries","attributes":[{"name":"limit","values":[{"value":"10\\\"20","line":4,"offset":42}],"line":4,"offset":36}],"children":[{"type":"Text","value":"\n      ","line":4,"offset":51},{"type":"FunctionTag","name":"EntryTitle","attributes":[{"name":"encode_html","values":[{"value":"1","line":5,"offset":84}],"line":5,"offset":72}],"line":5,"offset":58},{"type":"Text","value":"\n    ","line":5,"offset":89}],"line":4,"offset":21},{"type":"Text","value":"\n  </body>\n</html>","line":6,"offset":107}]}"#
         )
     }
 }
