@@ -46,7 +46,7 @@ pub fn serialize(node: Node, options: Option<&Options>) -> String {
             }
         }
         Text(TextNode { value, .. }) => {
-            s.push_str(value);
+            s.push_str(value.as_str());
         }
         FunctionTag(FunctionTagNode {
             name, attributes, ..

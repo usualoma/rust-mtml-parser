@@ -65,8 +65,8 @@ fn take_until_tag(input: Span) -> IResult<Span, Span> {
 
 fn parse_internal<'a>(
     mut input: Span<'a>,
-    current_tag: Option<&'a str>,
-) -> IResult<Span<'a>, Vec<Node<'a>>> {
+    current_tag: Option<String>,
+) -> IResult<Span<'a>, Vec<Node>> {
     let mut children = vec![];
 
     while input.len() > 0 {
@@ -78,7 +78,7 @@ fn parse_internal<'a>(
 
         if text.len() > 0 {
             children.push(Text(TextNode {
-                value: text.fragment(),
+                value: text.to_string(),
                 line: pos.location_line(),
                 offset: pos.location_offset(),
             }))
@@ -124,7 +124,7 @@ fn parse_attribute_values(mut input: Span) -> IResult<Span, Vec<AttributeValue>>
         )(rest)?;
         let (rest, _) = char(ch)(rest)?;
         values.push(AttributeValue {
-            value: value.fragment(),
+            value: value.to_string(),
             line: pos.location_line(),
             offset: pos.location_offset(),
         });
@@ -165,7 +165,7 @@ fn parse_attribute(input: Span) -> IResult<Span, Option<Attribute>> {
     return Ok((
         rest,
         Some(Attribute {
-            name: name.fragment(),
+            name: name.to_string(),
             values,
             line: pos.location_line(),
             offset: pos.location_offset(),
@@ -199,8 +199,6 @@ fn parse_tag(input: Span) -> IResult<Span, Node> {
     let (rest, tail) = take_until(">")(rest)?;
     let (rest, _) = anychar(rest)?;
 
-    let name = name.fragment();
-
     if FUNCTION_TAGS.lock().unwrap().contains(&name.to_lowercase())
         || (tail.len() >= 1
             && (head.chars().nth(1).unwrap() == '$' || tail.chars().rev().nth(0).unwrap() == '/'))
@@ -208,18 +206,18 @@ fn parse_tag(input: Span) -> IResult<Span, Node> {
         return Ok((
             rest,
             FunctionTag(FunctionTagNode {
-                name,
+                name: name.to_string(),
                 attributes,
                 line: pos.location_line(),
                 offset: pos.location_offset(),
             }),
         ));
     } else {
-        let (rest, children) = parse_internal(rest, Some(name))?;
+        let (rest, children) = parse_internal(rest, Some(name.to_string()))?;
         return Ok((
             rest,
             BlockTag(BlockTagNode {
-                name,
+                name: name.to_string(),
                 children,
                 attributes,
                 line: pos.location_line(),
@@ -238,7 +236,7 @@ mod tests {
         let (rest, tag) = parse_tag(Span::new(r#"<mt:EntryTitle>"#)).unwrap();
         assert_eq!(*rest.fragment(), "");
         assert_eq!(tag, FunctionTag(FunctionTagNode {
-            name: "EntryTitle",
+            name: "EntryTitle".to_string(),
             attributes: vec![],
             line: 1,
             offset: 0
@@ -254,7 +252,7 @@ mod tests {
         assert_eq!(
             attribute.values,
             vec![AttributeValue {
-                value: "10",
+                value: "10".to_string(),
                 line: 1,
                 offset: 6
             }]
@@ -270,7 +268,7 @@ mod tests {
         assert_eq!(
             attribute.values,
             vec![AttributeValue {
-                value: "10",
+                value: "10".to_string(),
                 line: 1,
                 offset: 6
             }]
@@ -287,12 +285,12 @@ mod tests {
             attribute.values,
             vec![
                 AttributeValue {
-                    value: "a",
+                    value: "a".to_string(),
                     line: 1,
                     offset: 8
                 },
                 AttributeValue {
-                    value: "b",
+                    value: "b".to_string(),
                     line: 1,
                     offset: 12
                 }

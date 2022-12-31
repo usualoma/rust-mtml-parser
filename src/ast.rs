@@ -1,55 +1,55 @@
 extern crate serde;
-use serde::{Serialize};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug,PartialEq,Eq,Serialize)]
-pub struct AttributeValue<'a> {
-    pub value: &'a str,
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AttributeValue {
+    pub value: String,
     pub line: u32,
     pub offset: usize,
 }
 
-#[derive(Debug,PartialEq,Eq,Serialize)]
-pub struct Attribute<'a> {
-    pub name: &'a str,
-    pub values: Vec<AttributeValue<'a>>,
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Attribute {
+    pub name: String,
+    pub values: Vec<AttributeValue>,
     pub line: u32,
     pub offset: usize,
 }
 
-#[derive(Debug,PartialEq,Eq,Serialize)]
-pub struct RootNode<'a> {
-    pub children: Vec<Node<'a>>,
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RootNode {
+    pub children: Vec<Node>,
 }
 
-#[derive(Debug,PartialEq,Eq,Serialize)]
-pub struct TextNode<'a> {
-    pub value: &'a str,
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TextNode {
+    pub value: String,
     pub line: u32,
     pub offset: usize,
 }
 
-#[derive(Debug,PartialEq,Eq,Serialize)]
-pub struct FunctionTagNode<'a> {
-    pub name: &'a str,
-    pub attributes: Vec<Attribute<'a>>,
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FunctionTagNode {
+    pub name: String,
+    pub attributes: Vec<Attribute>,
     pub line: u32,
     pub offset: usize,
 }
 
-#[derive(Debug,PartialEq,Eq,Serialize)]
-pub struct BlockTagNode<'a> {
-    pub name: &'a str,
-    pub attributes: Vec<Attribute<'a>>,
-    pub children: Vec<Node<'a>>,
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BlockTagNode {
+    pub name: String,
+    pub attributes: Vec<Attribute>,
+    pub children: Vec<Node>,
     pub line: u32,
     pub offset: usize,
 }
 
-#[derive(Debug,PartialEq,Eq,Serialize)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type")]
-pub enum Node<'a> {
-    Root(RootNode<'a>),
-    Text(TextNode<'a>),
-    FunctionTag(FunctionTagNode<'a>),
-    BlockTag(BlockTagNode<'a>),
+pub enum Node {
+    Root(RootNode),
+    Text(TextNode),
+    FunctionTag(FunctionTagNode),
+    BlockTag(BlockTagNode),
 }
