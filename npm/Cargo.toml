@@ -1,0 +1,19 @@
+[package]
+name = "mtml-parser"
+description = "MTML parser."
+repository = "https://github.com/usualoma/rust-mtml-parser"
+version = "0.0.1"
+edition = "2021"
+authors = ["Taku Amano <taku@taaas.jp>"]
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.release]
+lto = true
+
+[dependencies]
+wasm-bindgen = "0.2"
+serde-wasm-bindgen = "0.4"
+mtml-parser = { path = ".." }
