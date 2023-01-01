@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8">
+    <title>example</title>
+  </head>
+  <body>
+    <script type="module">
+      import init, {parse, serialize, FunctionTagStyle} from "./pkg/mtml_parser.js";
+      init()
+        .then(() => {
+          console.log(FunctionTagStyle);
+          const struct = parse("WebAssembly<mt:Entries><mt:EntryTitle /></mt:Entries>eeeeeeeee");
+          console.log(struct);
+          console.log(serialize(struct, {
+            prefix: "MT",
+            functionTagStyle: FunctionTagStyle.SelfClosing,
+          }));
+        });
+    </script>
+  </body>
+</html>

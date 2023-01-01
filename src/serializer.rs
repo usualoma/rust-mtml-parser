@@ -9,13 +9,13 @@ pub enum FunctionTagStyle {
     SelfClosing,
 }
 
-#[derive(Debug, Parser)]
+#[derive(Debug, Clone, Parser)]
 #[command(author, version, about, long_about = None)]
 pub struct Options {
     #[arg(short, long, default_value = "mt:")]
-    prefix: String,
+    pub prefix: String,
     #[arg(short, long, value_enum, default_value = "dollar")]
-    function_tag_style: FunctionTagStyle,
+    pub function_tag_style: FunctionTagStyle,
 }
 
 /// Serialize AST to MTML document.
@@ -31,18 +31,17 @@ pub struct Options {
 /// };
 /// serialize(node, None);
 /// ```
-pub fn serialize(node: Node, options: Option<&Options>) -> String {
+pub fn serialize(node: Node, options: Option<Options>) -> String {
     let mut s = String::new();
-    let default_opts = Options {
+    let options = options.unwrap_or(Options {
         prefix: "mt:".to_string(),
         function_tag_style: FunctionTagStyle::Dollar,
-    };
-    let options = options.unwrap_or(&default_opts);
+    });
 
     match node {
         Root(RootNode { children }) => {
             for child in children {
-                s.push_str(&serialize(child, Some(options)));
+                s.push_str(&serialize(child, Some(options.clone())));
             }
         }
         Text(TextNode { value, .. }) => {
@@ -79,7 +78,7 @@ pub fn serialize(node: Node, options: Option<&Options>) -> String {
             }
             s.push_str(">");
             for child in children {
-                s.push_str(&serialize(child, Some(options)));
+                s.push_str(&serialize(child, Some(options.clone())));
             }
             s.push_str(&format!("</{}{}>", options.prefix, name));
         }
@@ -101,7 +100,7 @@ mod tests {
     </mt:Entries>
   </body>
 </html>"#;
-    
+
     #[test]
     fn test_serialize() {
         let root = parse(INPUT).unwrap();
@@ -118,14 +117,17 @@ mod tests {
 </html>"#
         )
     }
-    
+
     #[test]
     fn test_serialize_self_closing() {
         let root = parse(INPUT).unwrap();
-        let serialized = serialize(root, Some(&Options {
-            prefix: "mt:".to_string(),
-            function_tag_style: FunctionTagStyle::SelfClosing,
-        }));
+        let serialized = serialize(
+            root,
+            Some(Options {
+                prefix: "mt:".to_string(),
+                function_tag_style: FunctionTagStyle::SelfClosing,
+            }),
+        );
         assert_eq!(
             serialized,
             r#"
@@ -138,14 +140,17 @@ mod tests {
 </html>"#
         )
     }
-    
+
     #[test]
     fn test_serialize_prefix() {
         let root = parse(INPUT).unwrap();
-        let serialized = serialize(root, Some(&Options {
-            prefix: "MT".to_string(),
-            function_tag_style: FunctionTagStyle::Dollar,
-        }));
+        let serialized = serialize(
+            root,
+            Some(Options {
+                prefix: "MT".to_string(),
+                function_tag_style: FunctionTagStyle::Dollar,
+            }),
+        );
         assert_eq!(
             serialized,
             r#"
