@@ -2,7 +2,7 @@
 name = "mtml-parser"
 description = "MTML parser written in Rust."
 repository = "https://github.com/usualoma/rust-mtml-parser"
-version = "0.0.4"
+version = "0.0.5"
 edition = "2021"
 authors = ["Taku Amano <taku@taaas.jp>"]
 license = "MIT"
