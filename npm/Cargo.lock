@@ -177,16 +177,6 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
 name = "mtml-parser"
-version = "0.0.3"
-dependencies = [
- "mtml-parser 0.0.4",
- "serde",
- "serde-wasm-bindgen",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "mtml-parser"
 version = "0.0.4"
 dependencies = [
  "clap",
@@ -195,6 +185,16 @@ dependencies = [
  "once_cell",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "mtml-parser-npm"
+version = "0.0.4"
+dependencies = [
+ "mtml-parser",
+ "serde",
+ "serde-wasm-bindgen",
+ "wasm-bindgen",
 ]
 
 [[package]]

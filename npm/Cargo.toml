@@ -1,8 +1,8 @@
 [package]
-name = "mtml-parser"
+name = "mtml-parser-npm"
 description = "MTML parser."
 repository = "https://github.com/usualoma/rust-mtml-parser"
-version = "0.0.3"
+version = "0.0.4"
 edition = "2021"
 authors = ["Taku Amano <taku@taaas.jp>"]
 license = "MIT"
