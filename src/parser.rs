@@ -117,14 +117,17 @@ fn parse_attribute_values(mut input: Span) -> IResult<Span, Vec<AttributeValue>>
             Some(ch) => ch,
             None => break,
         };
-        let (rest, value) = escaped(
+        let (rest, value) = opt(escaped(
             is_not(format!("{}\\", ch).as_str()),
             '\\',
             one_of(format!("{}", ch).as_str()),
-        )(rest)?;
+        ))(rest)?;
         let (rest, _) = char(ch)(rest)?;
         values.push(AttributeValue {
-            value: value.to_string(),
+            value: match value {
+                Some(value) => value.to_string(),
+                None => "".to_string(),
+            },
             line: pos.location_line(),
             offset: pos.location_offset(),
         });
@@ -200,6 +203,7 @@ fn parse_tag(input: Span) -> IResult<Span, Node> {
     let (rest, _) = anychar(rest)?;
 
     if FUNCTION_TAGS.lock().unwrap().contains(&name.to_lowercase())
+        || &name.to_lowercase() == "else"
         || (tail.len() >= 1
             && (head.chars().nth(1).unwrap() == '$' || tail.chars().rev().nth(0).unwrap() == '/'))
     {
@@ -232,15 +236,148 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_parse_blank_attribute() {
+        let (rest, tag) = parse_tag(Span::new(r#"<$mt:Var name="search_link" strip="" trim="1" encode_html="1" setvar="search_link"$>"#)).unwrap();
+        assert_eq!(*rest.fragment(), "");
+        assert_eq!(
+            tag,
+            FunctionTag(FunctionTagNode {
+                name: "Var".to_string(),
+                attributes: vec![
+                    Attribute {
+                        name: "name".to_string(),
+                        values: vec![AttributeValue {
+                            value: "search_link".to_string(),
+                            line: 1,
+                            offset: 14,
+                        }],
+                        line: 1,
+                        offset: 9,
+                    },
+                    Attribute {
+                        name: "strip".to_string(),
+                        values: vec![AttributeValue {
+                            value: "".to_string(),
+                            line: 1,
+                            offset: 34,
+                        }],
+                        line: 1,
+                        offset: 28,
+                    },
+                    Attribute {
+                        name: "trim".to_string(),
+                        values: vec![AttributeValue {
+                            value: "1".to_string(),
+                            line: 1,
+                            offset: 42,
+                        }],
+                        line: 1,
+                        offset: 37,
+                    },
+                    Attribute {
+                        name: "encode_html".to_string(),
+                        values: vec![AttributeValue {
+                            value: "1".to_string(),
+                            line: 1,
+                            offset: 58,
+                        }],
+                        line: 1,
+                        offset: 46,
+                    },
+                    Attribute {
+                        name: "setvar".to_string(),
+                        values: vec![AttributeValue {
+                            value: "search_link".to_string(),
+                            line: 1,
+                            offset: 69,
+                        }],
+                        line: 1,
+                        offset: 62,
+                    },
+                ],
+                line: 1,
+                offset: 0
+            })
+        );
+    }
+
+    #[test]
+    fn test_parse_if_else() {
+        let (rest, tag) = parse_tag(Span::new(r#"<mt:If name="blog_lang" eq="ja">ja_JP<mt:else><$mt:Var name="blog_lang"$></mt:If>"#)).unwrap();
+        assert_eq!(*rest.fragment(), "");
+        assert_eq!(
+            tag,
+            BlockTag(BlockTagNode {
+                name: "If".to_string(),
+                attributes: vec![
+                    Attribute {
+                        name: "name".to_string(),
+                        values: vec![AttributeValue {
+                            value: "blog_lang".to_string(),
+                            line: 1,
+                            offset: 12,
+                        }],
+                        line: 1,
+                        offset: 7,
+                    },
+                    Attribute {
+                        name: "eq".to_string(),
+                        values: vec![AttributeValue {
+                            value: "ja".to_string(),
+                            line: 1,
+                            offset: 27,
+                        }],
+                        line: 1,
+                        offset: 24,
+                    },
+                ],
+                line: 1,
+                offset: 0,
+                children: vec![
+                    Text(TextNode {
+                        value: "ja_JP".to_string(),
+                        line: 1,
+                        offset: 32,
+                    }),
+                    FunctionTag(FunctionTagNode {
+                        name: "else".to_string(),
+                        attributes: vec![],
+                        line: 1,
+                        offset: 37,
+                    }),
+                    FunctionTag(FunctionTagNode {
+                        name: "Var".to_string(),
+                        attributes: vec![Attribute {
+                            name: "name".to_string(),
+                            values: vec![AttributeValue {
+                                value: "blog_lang".to_string(),
+                                line: 1,
+                                offset: 60,
+                            }],
+                            line: 1,
+                            offset: 55,
+                        }],
+                        line: 1,
+                        offset: 46,
+                    }),
+                ],
+            })
+        );
+    }
+
+    #[test]
     fn test_parse_tag_function_tag() {
         let (rest, tag) = parse_tag(Span::new(r#"<mt:EntryTitle>"#)).unwrap();
         assert_eq!(*rest.fragment(), "");
-        assert_eq!(tag, FunctionTag(FunctionTagNode {
-            name: "EntryTitle".to_string(),
-            attributes: vec![],
-            line: 1,
-            offset: 0
-        }));
+        assert_eq!(
+            tag,
+            FunctionTag(FunctionTagNode {
+                name: "EntryTitle".to_string(),
+                attributes: vec![],
+                line: 1,
+                offset: 0
+            })
+        );
     }
 
     #[test]
