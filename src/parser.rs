@@ -80,6 +80,7 @@ fn parse_internal<'a>(
             children.push(Text(TextNode {
                 value: text.to_string(),
                 line: pos.location_line(),
+                column: pos.get_utf8_column(),
                 offset: pos.location_offset(),
             }))
         }
@@ -129,6 +130,7 @@ fn parse_attribute_values(mut input: Span) -> IResult<Span, Vec<AttributeValue>>
                 None => "".to_string(),
             },
             line: pos.location_line(),
+            column: pos.get_utf8_column(),
             offset: pos.location_offset(),
         });
 
@@ -171,6 +173,7 @@ fn parse_attribute(input: Span) -> IResult<Span, Option<Attribute>> {
             name: name.to_string(),
             values,
             line: pos.location_line(),
+            column: pos.get_utf8_column(),
             offset: pos.location_offset(),
         }),
     ));
@@ -213,6 +216,7 @@ fn parse_tag(input: Span) -> IResult<Span, Node> {
                 name: name.to_string(),
                 attributes,
                 line: pos.location_line(),
+                column: pos.get_utf8_column(),
                 offset: pos.location_offset(),
             }),
         ));
@@ -225,6 +229,7 @@ fn parse_tag(input: Span) -> IResult<Span, Node> {
                 children,
                 attributes,
                 line: pos.location_line(),
+                column: pos.get_utf8_column(),
                 offset: pos.location_offset(),
             }),
         ));
@@ -249,9 +254,11 @@ mod tests {
                         values: vec![AttributeValue {
                             value: "search_link".to_string(),
                             line: 1,
+                            column: 15,
                             offset: 14,
                         }],
                         line: 1,
+                        column: 10,
                         offset: 9,
                     },
                     Attribute {
@@ -259,9 +266,11 @@ mod tests {
                         values: vec![AttributeValue {
                             value: "".to_string(),
                             line: 1,
+                            column: 35,
                             offset: 34,
                         }],
                         line: 1,
+                        column: 29,
                         offset: 28,
                     },
                     Attribute {
@@ -269,9 +278,11 @@ mod tests {
                         values: vec![AttributeValue {
                             value: "1".to_string(),
                             line: 1,
+                            column: 43,
                             offset: 42,
                         }],
                         line: 1,
+                        column: 38,
                         offset: 37,
                     },
                     Attribute {
@@ -279,9 +290,11 @@ mod tests {
                         values: vec![AttributeValue {
                             value: "1".to_string(),
                             line: 1,
+                            column: 59,
                             offset: 58,
                         }],
                         line: 1,
+                        column: 47,
                         offset: 46,
                     },
                     Attribute {
@@ -289,13 +302,16 @@ mod tests {
                         values: vec![AttributeValue {
                             value: "search_link".to_string(),
                             line: 1,
+                            column: 70,
                             offset: 69,
                         }],
                         line: 1,
+                        column: 63,
                         offset: 62,
                     },
                 ],
                 line: 1,
+                column: 1,
                 offset: 0
             })
         );
@@ -315,9 +331,11 @@ mod tests {
                         values: vec![AttributeValue {
                             value: "blog_lang".to_string(),
                             line: 1,
+                            column: 13,
                             offset: 12,
                         }],
                         line: 1,
+                        column: 8,
                         offset: 7,
                     },
                     Attribute {
@@ -325,24 +343,29 @@ mod tests {
                         values: vec![AttributeValue {
                             value: "ja".to_string(),
                             line: 1,
+                            column: 28,
                             offset: 27,
                         }],
                         line: 1,
+                        column: 25,
                         offset: 24,
                     },
                 ],
                 line: 1,
+                column: 1,
                 offset: 0,
                 children: vec![
                     Text(TextNode {
                         value: "ja_JP".to_string(),
                         line: 1,
+                        column: 33,
                         offset: 32,
                     }),
                     FunctionTag(FunctionTagNode {
                         name: "else".to_string(),
                         attributes: vec![],
                         line: 1,
+                        column: 38,
                         offset: 37,
                     }),
                     FunctionTag(FunctionTagNode {
@@ -352,12 +375,15 @@ mod tests {
                             values: vec![AttributeValue {
                                 value: "blog_lang".to_string(),
                                 line: 1,
+                                column: 61,
                                 offset: 60,
                             }],
                             line: 1,
+                            column: 56,
                             offset: 55,
                         }],
                         line: 1,
+                        column: 47,
                         offset: 46,
                     }),
                 ],
@@ -375,6 +401,7 @@ mod tests {
                 name: "EntryTitle".to_string(),
                 attributes: vec![],
                 line: 1,
+                column: 1,
                 offset: 0
             })
         );
@@ -391,6 +418,7 @@ mod tests {
             vec![AttributeValue {
                 value: "10".to_string(),
                 line: 1,
+                column: 7,
                 offset: 6
             }]
         );
@@ -407,6 +435,7 @@ mod tests {
             vec![AttributeValue {
                 value: "10".to_string(),
                 line: 1,
+                column: 7,
                 offset: 6
             }]
         );
@@ -424,11 +453,13 @@ mod tests {
                 AttributeValue {
                     value: "a".to_string(),
                     line: 1,
+                    column: 9,
                     offset: 8
                 },
                 AttributeValue {
                     value: "b".to_string(),
                     line: 1,
+                    column: 13,
                     offset: 12
                 }
             ]

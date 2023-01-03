@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub struct AttributeValue {
     pub value: String,
     pub line: u32,
+    pub column: usize,
     pub offset: usize,
 }
 
@@ -13,6 +14,7 @@ pub struct Attribute {
     pub name: String,
     pub values: Vec<AttributeValue>,
     pub line: u32,
+    pub column: usize,
     pub offset: usize,
 }
 
@@ -25,6 +27,7 @@ pub struct RootNode {
 pub struct TextNode {
     pub value: String,
     pub line: u32,
+    pub column: usize,
     pub offset: usize,
 }
 
@@ -33,6 +36,7 @@ pub struct FunctionTagNode {
     pub name: String,
     pub attributes: Vec<Attribute>,
     pub line: u32,
+    pub column: usize,
     pub offset: usize,
 }
 
@@ -42,6 +46,7 @@ pub struct BlockTagNode {
     pub attributes: Vec<Attribute>,
     pub children: Vec<Node>,
     pub line: u32,
+    pub column: usize,
     pub offset: usize,
 }
 
