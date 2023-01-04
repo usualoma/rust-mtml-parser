@@ -2,11 +2,14 @@ extern crate nom;
 
 use nom::{
     branch::alt,
-    bytes::complete::{escaped, is_not, tag, tag_no_case, take_until},
-    character::complete::{alpha1, alphanumeric1, anychar, char, multispace0, one_of},
+    bytes::complete::{is_not, tag, tag_no_case, take_till, take_until},
+    character::{
+        complete::{alpha1, alphanumeric1, anychar, char, multispace0},
+        is_space,
+    },
     combinator::{opt, recognize},
     multi::many0_count,
-    sequence::pair,
+    sequence::{pair, tuple},
     IResult, InputTake,
 };
 use nom_locate::{position, LocatedSpan};
@@ -114,16 +117,17 @@ fn parse_attribute_values(mut input: Span) -> IResult<Span, Vec<AttributeValue>>
     while input.len() > 0 {
         let (_, pos) = position(input)?;
         let (rest, ch) = opt(alt((char('"'), char('\''))))(input)?;
-        let ch = match ch {
-            Some(ch) => ch,
-            None => break,
+        let (rest, value) = match ch {
+            Some(ch) => {
+                let (rest, value) = opt(alt((
+                    recognize(tuple((char('<'), take_till(|c| c != '>'), char('>')))),
+                    is_not(format!("{}\\", ch).as_str()),
+                )))(rest)?;
+                let (rest, _) = char(ch)(rest)?;
+                (rest, value)
+            }
+            None => opt(take_till(|c| is_space(c as u8)))(rest)?,
         };
-        let (rest, value) = opt(escaped(
-            is_not(format!("{}\\", ch).as_str()),
-            '\\',
-            one_of(format!("{}", ch).as_str()),
-        ))(rest)?;
-        let (rest, _) = char(ch)(rest)?;
         values.push(AttributeValue {
             value: match value {
                 Some(value) => value.to_string(),
@@ -319,7 +323,10 @@ mod tests {
 
     #[test]
     fn test_parse_if_else() {
-        let (rest, tag) = parse_tag(Span::new(r#"<mt:If name="blog_lang" eq="ja">ja_JP<mt:else><$mt:Var name="blog_lang"$></mt:If>"#)).unwrap();
+        let (rest, tag) = parse_tag(Span::new(
+            r#"<mt:If name="blog_lang" eq="ja">ja_JP<mt:else><$mt:Var name="blog_lang"$></mt:If>"#,
+        ))
+        .unwrap();
         assert_eq!(*rest.fragment(), "");
         assert_eq!(
             tag,

@@ -18,6 +18,26 @@ pub struct Options {
     pub function_tag_style: FunctionTagStyle,
 }
 
+fn attribute_to_string(attr: Attribute) -> String {
+    format!(
+        " {}={}",
+        attr.name,
+        attr.values
+            .iter()
+            .map({
+                |AttributeValue { value, .. }| {
+                    if value.contains("\"") {
+                        format!("'{}'", value)
+                    } else {
+                        format!(r#""{}""#, value)
+                    }
+                }
+            })
+            .collect::<Vec<String>>()
+            .join(",")
+    )
+}
+
 /// Serialize AST to MTML document.
 ///
 /// # Examples
@@ -62,7 +82,7 @@ pub fn serialize(node: Node, options: Option<Options>) -> String {
             };
             s.push_str(&format!("<{}{}{}", pre_sign, options.prefix, name));
             for attr in attributes {
-                s.push_str(&format!(r#" {}="{}""#, attr.name, attr.values[0].value));
+                s.push_str(&attribute_to_string(attr))
             }
             s.push_str(&format!("{}>", post_sign));
         }
@@ -74,7 +94,7 @@ pub fn serialize(node: Node, options: Option<Options>) -> String {
         }) => {
             s.push_str(&format!("<{}{}", options.prefix, name));
             for attr in attributes {
-                s.push_str(&format!(r#" {}="{}""#, attr.name, attr.values[0].value));
+                s.push_str(&attribute_to_string(attr))
             }
             s.push_str(">");
             for child in children {
@@ -95,8 +115,8 @@ mod tests {
     const INPUT: &str = r#"
 <html>
   <body>
-    <mt:Entries    limit="10\"20">
-      <mtEntryTitle encode_html="1"/>
+    <mt:Entries    limit="10">
+      <mtEntryTitle encode_html='1'/>
     </mt:Entries>
   </body>
 </html>"#;
@@ -110,7 +130,7 @@ mod tests {
             r#"
 <html>
   <body>
-    <mt:Entries limit="10\"20">
+    <mt:Entries limit="10">
       <$mt:EntryTitle encode_html="1"$>
     </mt:Entries>
   </body>
@@ -133,7 +153,7 @@ mod tests {
             r#"
 <html>
   <body>
-    <mt:Entries limit="10\"20">
+    <mt:Entries limit="10">
       <mt:EntryTitle encode_html="1"/>
     </mt:Entries>
   </body>
@@ -156,9 +176,42 @@ mod tests {
             r#"
 <html>
   <body>
-    <MTEntries limit="10\"20">
+    <MTEntries limit="10">
       <$MTEntryTitle encode_html="1"$>
     </MTEntries>
+  </body>
+</html>"#
+        )
+    }
+
+    #[test]
+    fn test_serialize_single_quote() {
+        let root = parse(
+            r#"
+<html>
+  <body>
+    <mt:Entries limit="10">
+      <mtEntryTitle replace='"',"'"/>
+    </mt:Entries>
+  </body>
+</html>"#,
+        )
+        .unwrap();
+        let serialized = serialize(
+            root,
+            Some(Options {
+                prefix: "mt:".to_string(),
+                function_tag_style: FunctionTagStyle::Dollar,
+            }),
+        );
+        assert_eq!(
+            serialized,
+            r#"
+<html>
+  <body>
+    <mt:Entries limit="10">
+      <$mt:EntryTitle replace='"',"'"$>
+    </mt:Entries>
   </body>
 </html>"#
         )
